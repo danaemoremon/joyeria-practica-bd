@@ -2,6 +2,7 @@
 // Stack: Node.js (Express) + PostgreSQL (pg) + Supabase
 
 const express = require('express');
+const cors = require('cors');
 const { Pool } = require('pg');
 const path = require('path'); // Módulo para trabajar con rutas de archivos
 require('dotenv').config(); // Carga las variables del .env
@@ -12,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 // Inicialización de Express
 const app = express();
+app.use(cors());
 
 // Middlewares
 app.use(express.json()); // Permite a Express leer JSON en las peticiones POST/PUT
