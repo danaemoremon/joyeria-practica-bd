@@ -115,5 +115,5 @@ app.get('/', (req, res) => {
 // 5. INICIO DEL SERVIDOR
 // -----------------------------------------------------------
 app.listen(PORT, () => {
-    console.log(Servidor de Joyería corriendo en http://localhost:${PORT});
+    console.log('Servidor de Joyería corriendo en http://localhost:${PORT}');
 });
