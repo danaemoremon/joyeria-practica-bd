@@ -1,6 +1,7 @@
 // Archivo: server.js
 // Stack: Node.js (Express) + PostgreSQL (pg) + Supabase
 
+const path = require('path'); 
 const express = require('express');
 const { Pool } = require('pg'); 
 const dotenv = require('dotenv');
@@ -107,6 +108,17 @@ app.delete('/api/productos/:id', async (req, res) => {
     }
 });
 
+
+// RUTA PARA SERVIR EL FRONTEND (index.html)
+// Cuando el usuario accede a la raíz de la URL ("/"), Express envía el archivo index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Inicio del servidor
+app.listen(PORT, () => {
+    console.log(`Servidor de Joyería corriendo en http://localhost:${PORT}`);
+});
 
 // =========================================================
 //                  INICIO DEL SERVIDOR
