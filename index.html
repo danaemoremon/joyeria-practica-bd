@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Productos Joyería API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
+        h1, h2 { color: #333; border-bottom: 2px solid #ccc; padding-bottom: 5px; }
+        form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, textarea, button { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #5cb85c; color: white; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #4cae4c; }
+        .success { color: #28a745; font-weight: bold; background: #d4edda; padding: 10px; border-radius: 4px; }
+        .error { color: #dc3545; font-weight: bold; background: #f8d7da; padding: 10px; border-radius: 4px; }
+        pre { background: #eee; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Añadir Nuevo Producto (POST)</h1>
+    <p>La URL de tu API desplegada es: <strong id="api-url">Cargando...</strong></p>
+
+    <form id="productForm">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" required>
+
+        <label for="descripcion">Descripción:</label>
+        <textarea id="descripcion" required></textarea>
+
+        <label for="precio">Precio:</label>
+        <input type="number" id="precio" step="0.01" required>
+
+        <label for="stock">Stock:</label>
+        <input type="number" id="stock" required>
+
+        <button type="submit">Guardar Producto</button>
+    </form>
+
+    <div id="message"></div>
+    
+    <hr>
+
+    <h2>Ver Productos (GET)</h2>
+    <button id="checkButton">Cargar Todos los Productos</button>
+    <pre id="results"></pre>
+
+    <script>
+        // *** 1. ¡CAMBIA ESTA URL! ***
+        // Pega la URL base de tu servicio Render. EJEMPLO: https://joyeria-final-api.onrender.com
+        const RENDER_API_BASE_URL = 'https://joyeria-practica.onrender.com'; 
+        
+        const form = document.getElementById('productForm');
+        const messageDiv = document.getElementById('message');
+        const apiUrlElement = document.getElementById('api-url');
+        const checkButton = document.getElementById('checkButton');
+        const resultsPre = document.getElementById('results');
+
+        apiUrlElement.textContent = RENDER_API_BASE_URL;
+
+        // FUNCIÓN PARA CREAR (POST)
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            messageDiv.textContent = 'Enviando...';
+            messageDiv.className = '';
+
+            const data = {
+                nombre: document.getElementById('nombre').value,
+                descripcion: document.getElementById('descripcion').value,
+                // Asegura el tipo de dato correcto
+                precio: parseFloat(document.getElementById('precio').value),
+                stock: parseInt(document.getElementById('stock').value),
+            };
+
+            try {
+                const response = await fetch(${RENDER_API_BASE_URL}/api/productos, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.status === 201) { // 201 Created
+                    messageDiv.textContent = '✅ Producto añadido con éxito!';
+                    messageDiv.className = 'success';
+                    form.reset();
+                } else {
+                    const errorData = await response.json();
+                    messageDiv.textContent = ❌ Error ${response.status}: ${errorData.error || 'Fallo al guardar producto'};
+                    messageDiv.className = 'error';
+                }
+            } catch (error) {
+                messageDiv.textContent = ❌ Error de Conexión. Asegúrate que la URL en el script es correcta.;
+                messageDiv.className = 'error';
+                console.error('Fetch Error:', error);
+            }
+        });
+        
+        // FUNCIÓN PARA LEER (GET)
+        checkButton.addEventListener('click', async () => {
+            resultsPre.textContent = 'Cargando resultados...';
+            try {
+                const response = await fetch(${RENDER_API_BASE_URL}/api/productos);
+                
+                if (!response.ok) {
+                    throw new Error(Error HTTP: ${response.status});
+                }
+                
+                const data = await response.json();
+                resultsPre.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultsPre.textContent = ❌ Error al obtener datos: ${error.message};
+            }
+        });
+    </script>
+</body>
+</html>
