@@ -1,138 +1,119 @@
 // Archivo: server.js
 // Stack: Node.js (Express) + PostgreSQL (pg) + Supabase
 
-const path = require('path'); 
 const express = require('express');
-const { Pool } = require('pg'); 
-const dotenv = require('dotenv');
+const { Pool } = require('pg');
+const path = require('path'); // Módulo para trabajar con rutas de archivos
+require('dotenv').config(); // Carga las variables del .env
 
-// Carga las variables de entorno (DATABASE_URL) desde .env
-dotenv.config(); 
+// 1. DEFINICIÓN DEL PUERTO
+// Usa la variable de entorno PORT (que Render proporciona) o 3000 si no está definida.
+const PORT = process.env.PORT || 3000;
 
+// Inicialización de Express
 const app = express();
-const port = process.env.PORT || 3000;
 
-// CONFIGURACIÓN DE CONEXIÓN A SUPABASE (PostgreSQL)
-// ⚠️ IMPORTANTE: El bloque SSL es NECESARIO para que Render se conecte a Supabase.
+// Middlewares
+app.use(express.json()); // Permite a Express leer JSON en las peticiones POST/PUT
+
+// 2. CONFIGURACIÓN DE LA CONEXIÓN A LA BASE DE DATOS (Supabase)
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    // *** CONFIGURACIÓN SSL CRÍTICA PARA RENDER/SUPABASE ***
     ssl: {
         rejectUnauthorized: false 
     }
 });
 
-// --- MIDDLEWARE ---
-app.use(express.json()); // Permite al servidor leer cuerpos de peticiones JSON (para POST/PUT)
-app.use(express.urlencoded({ extended: true })); // Permite leer datos de formularios
+// Mensaje de diagnóstico para los logs de Render
+pool.connect()
+    .then(client => {
+        console.log('Conexión exitosa a Supabase. Hora de la DB:', new Date().toISOString());
+        client.release();
+    })
+    .catch(err => {
+        // Muestra este error en los logs si falla la conexión
+        console.error('ERROR al conectar a Supabase. Revisa tu DATABASE_URL:', err.message);
+    });
 
+// -----------------------------------------------------------
+// 3. RUTAS DE LA API (CRUD)
+// -----------------------------------------------------------
 
-// =========================================================
-//                  RUTAS CRUD (PASO 7)
-// =========================================================
-
-// 1. LEER TODOS LOS PRODUCTOS (READ - GET)
+// RUTA GET ALL (READ) - Obtener todos los productos
 app.get('/api/productos', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM productos ORDER BY id DESC');
+        const result = await pool.query('SELECT * FROM productos ORDER BY id ASC');
         res.status(200).json(result.rows);
     } catch (err) {
-        console.error("Error al obtener productos:", err);
+        console.error("Error al obtener productos:", err.message);
         res.status(500).json({ error: 'Error al consultar la base de datos.' });
     }
 });
 
-// 2. CREAR UN NUEVO PRODUCTO (CREATE - POST)
+// RUTA POST (CREATE) - Añadir un nuevo producto
 app.post('/api/productos', async (req, res) => {
-    // Campos necesarios según tu esquema SQL
-    const { nombre, tipo_producto, costo_venta, cantidad_disponible, proveedor_id, material } = req.body;
-    
-    // Verificación básica de datos (ejemplo: nombre y costo son obligatorios)
-    if (!nombre || !costo_venta) {
-        return res.status(400).json({ error: 'Faltan campos obligatorios: nombre y costo_venta.' });
-    }
-
+    const { nombre, descripcion, precio, stock } = req.body;
     try {
-        const sql = `
-            INSERT INTO productos (nombre, tipo_producto, costo_venta, cantidad_disponible, proveedor_id, material)
-            VALUES ($1, $2, $3, $4, $5, $6) 
-            RETURNING *;
-        `;
-        const result = await pool.query(sql, [nombre, tipo_producto, costo_venta, cantidad_disponible, proveedor_id, material]);
+        const query = 'INSERT INTO productos (nombre, descripcion, precio, stock) VALUES ($1, $2, $3, $4) RETURNING *';
+        const values = [nombre, descripcion, precio, stock];
+        const result = await pool.query(query, values);
         res.status(201).json(result.rows[0]); // 201 Created
     } catch (err) {
-        console.error("Error al crear producto:", err);
-        // Devuelve 500 y detalles del error (como violación de FOREIGN KEY)
-        res.status(500).json({ error: 'Error al crear el producto.', details: err.message });
+        console.error("Error al crear producto:", err.message);
+        res.status(500).json({ error: 'Error al añadir producto en la base de datos.' });
     }
 });
 
-// 3. ACTUALIZAR UN PRODUCTO (UPDATE - PUT)
+// RUTA PUT (UPDATE) - Actualizar un producto por ID
 app.put('/api/productos/:id', async (req, res) => {
-    const { id } = req.params; // ID viene de la URL (ej: /api/productos/5)
-    // Solo permitimos actualizar estos campos en este ejemplo
-    const { nombre, costo_venta, cantidad_disponible } = req.body; 
-    
+    const { id } = req.params;
+    const { nombre, descripcion, precio, stock } = req.body;
     try {
-        const sql = `
-            UPDATE productos 
-            SET nombre = $1, costo_venta = $2, cantidad_disponible = $3
-            WHERE id = $4
-            RETURNING *;
-        `;
-        const result = await pool.query(sql, [nombre, costo_venta, cantidad_disponible, id]);
-        
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Producto no encontrado para actualizar.' });
+        const query = 'UPDATE productos SET nombre=$1, descripcion=$2, precio=$3, stock=$4 WHERE id=$5 RETURNING *';
+        const values = [nombre, descripcion, precio, stock, id];
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado.' });
         }
         res.status(200).json(result.rows[0]);
     } catch (err) {
-        console.error("Error al actualizar producto:", err);
-        res.status(500).json({ error: 'Error al actualizar el producto.', details: err.message });
+        console.error("Error al actualizar producto:", err.message);
+        res.status(500).json({ error: 'Error al actualizar el producto en la base de datos.' });
     }
 });
 
-// 4. ELIMINAR UN PRODUCTO (DELETE - DELETE)
+// RUTA DELETE (DELETE) - Eliminar un producto por ID
 app.delete('/api/productos/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const sql = 'DELETE FROM productos WHERE id = $1 RETURNING *;';
-        const result = await pool.query(sql, [id]);
+        const result = await pool.query('DELETE FROM productos WHERE id = $1', [id]);
         
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Producto no encontrado para eliminar.' });
         }
-        res.status(200).json({ message: 'Producto eliminado correctamente.', id_eliminado: result.rows[0].id });
+        res.status(204).send(); // 204 No Content
     } catch (err) {
-        console.error("Error al eliminar producto:", err);
-        res.status(500).json({ error: 'Error al eliminar el producto.', details: err.message });
+        console.error("Error al eliminar producto:", err.message);
+        res.status(500).json({ error: 'Error al eliminar el producto de la base de datos.' });
     }
 });
 
+// -----------------------------------------------------------
+// 4. RUTA PARA SERVIR EL FRONTEND (index.html)
+// DEBE IR DESPUÉS DE TODAS LAS RUTAS /api/...
+// -----------------------------------------------------------
 
-// RUTA PARA SERVIR EL FRONTEND (index.html)
-// Cuando el usuario accede a la raíz de la URL ("/"), Express envía el archivo index.html
+// Resuelve el error "Cannot GET /" sirviendo el archivo index.html en la raíz
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Inicio del servidor
-app.listen(PORT, () => {
-    console.log(`Servidor de Joyería corriendo en http://localhost:${PORT}`);
-});
 
-// =========================================================
-//                  INICIO DEL SERVIDOR
-// =========================================================
-app.listen(port, () => {
-    console.log(`Servidor de Joyería corriendo en http://localhost:${port}`);
-    
-    // Prueba de conexión al iniciar (mostrará ETIMEOUT, pero confirma que el código es válido)
-    pool.query('SELECT NOW()', (err, res) => {
-        if (err) {
-            // Este es el error ETIMEOUT/bloqueo que esperamos localmente.
-            console.error('❌ Error al conectar a Supabase. (Este error es esperado por bloqueo de firewall, continuaremos con el despliegue en Render).', err.code);
-        } else {
-            console.log('✅ Conexión exitosa a Supabase. Hora de la DB:', res.rows[0].now);
-        }
-    });
+// -----------------------------------------------------------
+// 5. INICIO DEL SERVIDOR
+// -----------------------------------------------------------
+app.listen(PORT, () => {
+    console.log(Servidor de Joyería corriendo en http://localhost:${PORT});
 });
