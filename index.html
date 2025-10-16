@@ -94,23 +94,37 @@
             }
         });
         
-        // FUNCIÓN PARA LEER (GET)
-        checkButton.addEventListener('click', async () => {
-            resultsPre.textContent = 'Cargando resultados...';
-            try {
-                const response = await fetch(${RENDER_API_BASE_URL}/api/productos);
-                
-                if (!response.ok) {
-                    throw new Error(Error HTTP: ${response.status});
-                }
-                
-                const data = await response.json();
-                resultsPre.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultsPre.textContent = ❌ Error al obtener datos: ${error.message};
-            }
-        });
+        
+
+// FUNCIÓN PARA LEER (GET)
+checkButton.addEventListener('click', async () => {
+    // 1. Limpiamos el contenido anterior antes de empezar a cargar.
+    resultsPre.textContent = 'Cargando resultados...';
+    resultsPre.innerHTML = ''; 
+
+    try {
+        const response = await fetch(`${RENDER_API_BASE_URL}/api/productos`);
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // 2. Comprobamos si hay productos o si el array está vacío.
+        if (data.length === 0) {
+            resultsPre.textContent = '✅ No hay productos en la base de datos.';
+        } else {
+            // 3. Muestra el JSON formateado.
+            resultsPre.textContent = JSON.stringify(data, null, 2);
+        }
+        
+    } catch (error) {
+        resultsPre.textContent = `❌ Error al obtener datos: ${error.message}. Verifica la consola para más detalles.`;
+    }
+});
     </script>
 </body>
 
 </html>
+
